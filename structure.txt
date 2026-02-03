@@ -1,0 +1,45 @@
+my_ai_project/
+│
+├── data/                      # Raw and processed data storage
+│   ├── pdfs/
+│   ├── texts/
+│   ├── web/
+│   └── processed/
+│
+├── logs/                      # Logs folder
+│   └── pipeline.log
+│
+├── configs/                   # Config files (YAML/JSON)
+│   └── pipeline_config.yaml
+│
+├── src/                       # Source code
+│   ├── __init__.py
+│   ├── ingestion.py           # Ingestion classes
+│   ├── embeddings.py          # Embedding implementations
+│   ├── retrieval.py           # Retrieval logic
+│   ├── vector_store.py        # Vector store interfaces
+│   ├── prompts.py             # Prompt templates/functions
+│   ├── chains.py              # Chain creation and orchestration
+│   ├── langsmith_integration.py
+│   ├── config.py              # Config loader
+│   ├── api/                   # FastAPI routers split by feature/page
+│   │   ├── __init__.py        # Router registrations
+│   │   ├── summary.py         # /summary route handlers
+│   │   ├── qa.py              # /qa route handlers
+│   │   └── translation.py     # /translation route handlers (if any)
+│   └── api.py                 # FastAPI main app, includes routers
+│
+├── tests/                     # Tests organized by module
+│   ├── test_ingestion.py
+│   ├── test_embeddings.py
+│   ├── test_retrieval.py
+│   ├── test_chains.py
+│   └── test_api.py
+│
+├── .env
+├── .gitignore
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── README.md
+└── main.py                    # Entry point to run app locally
