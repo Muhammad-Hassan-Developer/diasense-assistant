@@ -1,0 +1,7 @@
+Context:
+{context}
+
+Patient Question:
+{question}
+
+Provide a structured medical recommendation.

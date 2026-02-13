@@ -1,24 +1,27 @@
-from langchain_community.document_loaders import PyMuPDFLoader,TextLoader
-from src.helper import Helper
-
-helper = Helper()
+from langchain_community.document_loaders import DirectoryLoader, WebBaseLoader, PyPDFLoader, TextLoader
 
 class Loader:
     def __init__(self):
-        self.all_texts = []
+        pass  # Aap yahan attributes add kar sakte hain agar chahiye
 
-    def load_pdf_dir(self, dir_path: str, glob: str = "*.pdf", loader_cls=PyMuPDFLoader):
-        texts = helper.Load_text_convert_directory(dir_path, loader_cls, glob)
-        self.all_texts.extend(texts)
-        return texts
+    def load_from_dir(self, path: str, glob: str, loader_cls):
+        try:
+            loader = DirectoryLoader(path, glob=glob, loader_cls=loader_cls)
+            documents = loader.load()  # Ye documents list return karega
+            return documents
+        except Exception as e:
+            print(f"Error loading documents from directory {path}: {e}")
+            return []
 
-    def load_text_dir(self, dir_path: str, glob: str = "*.text", loader_cls=TextLoader):
-        texts = helper.Load_text_convert_directory(dir_path, loader_cls, glob)
-        self.all_texts.extend(texts)
-        return texts    
+    def web_load(self, url: str):
+        """Load text content from a web page URL."""
+        try:
+            loader = WebBaseLoader(url)
+            docs = loader.load()
+            texts = [doc.page_content for doc in docs]
+            return "\n".join(texts)
+        except Exception as e:
+            print(f"Error loading web content from {url}: {e}")
+            return ""
 
 
-# loader = Loader()
-# texts = loader.load_pdf_dir("data/pdfs")
-# print(f"Total documents loaded: {len(texts)}")
-# print(f"First document content preview: {texts[0][:500]}")  # Print first 500 characters of the first document
