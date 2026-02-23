@@ -21,7 +21,7 @@ diasense_vs=vs.get_vectorstore(
 )
 
 # # 5. Create retriever and perform search
-retriever_docs = diasense_vs.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+retriever_docs = diasense_vs.as_retriever(search_type="similarity", search_kwargs={"k": 10})
 
 
 rm=RunnableManager()
@@ -29,37 +29,43 @@ all_prompts = loader.load_from_dir("prompts/",glob="**/*.text",loader_cls=TextLo
 question_prompt = all_prompts[2].page_content
 system_prompt = all_prompts[1].page_content
 human_prompt = all_prompts[0].page_content
-print("Question Prompt:\n", question_prompt)
-print("Human Prompt:\n", human_prompt)
-print("System Prompt:\n", system_prompt)   
-final_human_prompt = prompts.human_prompt(human_prompt,{"question": question_prompt, "context": "context here"})
-print("\n--- HUMAN PROMPT OUTPUT ---\n")
-print(final_human_prompt)
+print(human_prompt)
 
-retrieval=rm.retrieval_Prpmpt_runnable()
-chain =retrieval | retriever_docs
-docs = chain.invoke(question_prompt)
-print("\n--- RETRIEVED DOCUMENTS ---\n")
-for i, doc in enumerate(docs, 1):
-    print(f"[Document {i}]\n{doc.page_content[:500]}\n---")
-context = "\n\n".join(
-    doc.page_content for doc in docs
-)
-print(context)
-final_human_prompt = prompts.human_prompt(human_prompt,{"question": question_prompt, "context": context})
-print("\n--- FINAL HUMAN PROMPT ---\n")
-print(final_human_prompt)
-final_system_prompt =  prompts.system_prompt(system_prompt)
-final_prompt = prompts.diasense_chat_prompt(human_msg=final_human_prompt, system_msg=final_system_prompt)
-print(final_prompt)
-messages = final_prompt.format_messages(**{})
 from src.llms import Llms_client
 llm_client = Llms_client()
-response = llm_client.groq_llm(
-    api_key=config.GROQ_API_KEY,
-    model=config.GROQ_MODEL,
-    prompt=messages,
-)
 
-# # print("\n--- LLM RESPONSE ---\n")
-print(response)
+def run_chat(question: str):
+    # 1️⃣ Retrieve documents
+    retrieval = rm.retrieval_prompt_runnable()  # optional: pass prompt later if needed
+    chain = retrieval | retriever_docs
+    docs = chain.invoke(question)
+
+    # 2️⃣ Build context
+    context = "\n\n".join(doc.page_content for doc in docs)
+    print(f"Retrieved {len(docs)} documents for question: '{question}'")
+    print(f"Context: {context}")
+
+    from langchain_core.prompts import ChatPromptTemplate
+
+    prompt = ChatPromptTemplate.from_messages([
+    ("system", system_prompt),
+    ("human", human_prompt)
+
+    ])
+    formatted_messages = prompt.invoke({
+    "context": context,
+    "question": question
+    })
+    print(formatted_messages)
+    response = llm_client.groq_llm(
+        api_key=config.GROQ_API_KEY,
+        model=config.GROQ_MODEL,
+        prompt=formatted_messages,
+    )
+
+    return {
+        "answer": response,
+        "context": context
+    }
+# print(run_chat("What is diabetes?"))
+

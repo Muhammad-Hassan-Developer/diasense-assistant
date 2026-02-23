@@ -23,3 +23,6 @@ class Prompts:
             ]
         )
     
+# prompts=Prompts()
+# rp=prompts.retrieval_prompt("What is diabetes diagnosis criteria for a 45 year old?")
+# print(rp)
