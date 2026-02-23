@@ -46,6 +46,9 @@ class ChatRequest(BaseModel):
 
 # 3️⃣ Router (optional, but good for modularity)
 router = APIRouter()
+@app.get("/status")
+def ping():
+    return {"status": "ok"}
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
