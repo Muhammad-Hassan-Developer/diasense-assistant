@@ -9,35 +9,21 @@ hf = HuggingFaceEmbeddings(
     model_kwargs=model_kwargs,
     encode_kwargs=encode_kwargs,
 )
-class Embeddings:
-    def __init__(self):
-        self.embedding_model = hf
+from google import genai
 
-    def get_embeddings(self, texts):
-        """Get embeddings for a list of texts."""
-        return self.embedding_model.embed_documents(texts)
-    
+client = genai.Client()
 
-from src.config import Config
-from langchain_huggingface import HuggingFaceEmbeddings
+result = client.models.embed_content(
+        model="gemini-embedding-001",
+        contents= [
+            "What is the meaning of life?",
+            "What is the purpose of existence?",
+            "How do I bake a cake?"
+        ]
+)
 
-config = Config()
+for embedding in result.embeddings:
+    print(embedding)
+class Embeddings_client:
 
-from typing import List
 
-class Embeddings:
-    def __init__(self):
-        self.embedding_model = HuggingFaceEmbeddings(
-            model_name=config.HUGGINGFACE_EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": False},
-        )
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        return self.embedding_model.embed_documents(texts)
-
-    def embed_query(self, text: str) -> List[float]:
-        return self.embedding_model.embed_query(text)
-
-    def get_embedding_model(self):
-        return self.embedding_model
