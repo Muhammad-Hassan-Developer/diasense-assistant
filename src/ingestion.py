@@ -4,7 +4,8 @@ from src.helper import Helper
 from src.splitter import Splitter
 from src.embeddings import Embeddings
 emb=Embeddings()
-from src.vector_store import get_vectorstore
+from src.vector_store import VectorStore
+vs=VectorStore()
 help = Helper()
 loader = Loader()
 splitter = Splitter(chunk_size=1000, chunk_overlap=200)
@@ -20,11 +21,12 @@ print(docs_pdf[0].page_content[:500])
 chunks_pdf=splitter.split_documents(docs_pdf)
 print(f"Total chunks created from PDFs: {len(chunks_pdf)}")
 print(chunks_pdf[0])
-print("Creating_vectors with the embedding and storing to chorma_db...")
+# print("Creating_vectors with the embedding and storing to chorma_db...")
 
-vectorstore = get_vectorstore(collection_name="diabetes_2026_pdf",embedding_function=emb)
-BATCH_SIZE = 300
-for i in range(0, len(chunks_pdf), BATCH_SIZE):
-    batch = chunks_pdf[i:i+BATCH_SIZE]
-    vectorstore.add_documents(batch)
-print("Documents added to the vector store.")
+# vectorstore = get_vectorstore(collection_name="diabetes_2026_pdf",embedding_function=emb)
+# BATCH_SIZE = 300
+# for i in range(0, len(chunks_pdf), BATCH_SIZE):
+#     batch = chunks_pdf[i:i+BATCH_SIZE]
+#     vectorstore.add_documents(batch)
+# print("Documents added to the vector store.")
+# python -m src.ingestion
