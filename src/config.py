@@ -16,6 +16,5 @@ class Config:
     gemini_api=os.getenv("GEMINI_API")
     google_project_id=os.getenv("GOOGLE_PROJECT_ID")
     open_ai_api=os.getenv("OPENAI_API_KEY")
-    open_ai_embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-# "mixtral-8x7b-32768",
-    
+    open_ai_embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL")
+    open_ai_llm_model=os.getenv("OPENAI_LLM_MODEL")
