@@ -1,25 +1,22 @@
-from langchain_core.runnables import RunnableLambda
-from src.llms import Llms_client
 from src.config import Config
-from src.prompts import Prompts
-llms_client = Llms_client()
 config=Config()
-prompts=Prompts()
-
-from src.vector_store import get_vectorstore
-from src.embeddings import get_embeddings  # jo tum use kar rahe ho
-
-def get_diabetes_retriever():
-    embeddings = get_embeddings()
-
-    vectorstore = get_vectorstore(
-        collection_name="diabetes",  # 👈 EXISTING collection
-        embedding_function=embeddings,
-    )
+from src.embeddings import OpenAIEmbedding
+from src.vector_store import VectorStore
+vs=VectorStore()
+embedding_model = OpenAIEmbedding(model=config.open_ai_embedding_model, api_key=config.open_ai_api)
+vectorstore = vs.get_vectorstore(api_key=config.chroma_api_key,collection_name=config.chroma_collection, tenant=config.chroma_tenant, database=config.chroma_db,embedding_model=embedding_model)
+def get_diabetes_retriever(query):
 
     retriever = vectorstore.as_retriever(
         search_type="similarity",
-        search_kwargs={"k": 4}  # top-4 chunks
+        search_kwargs={"k": 4}
     )
 
-    return retriever
+    docs = retriever.invoke(query)   # 👈 yahan question diya
+
+    for doc in docs:
+        print(doc.page_content)
+
+    return docs
+get_diabetes_retriever("What is diabetes?")
+# python -m src.retrieval

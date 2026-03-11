@@ -1,14 +1,14 @@
 # src/vectorstore.py
 
-from src.runables import RunnableManager
-from src.embeddings import Embeddings
+# from src.runables import RunnableManager
+# from src.embeddings import Embeddings
 import chromadb
 from langchain_chroma import Chroma
 from src.config import Config
 
 config = Config()
-rm = RunnableManager()
-emb = Embeddings()
+# rm = RunnableManager()
+
 
 
 
@@ -26,10 +26,10 @@ class VectorStore:
         )
 
     @classmethod
-    def get_vectorstore(cls, collection_name: str, api_key, tenant, database):
+    def get_vectorstore(cls, collection_name: str, api_key, tenant, database,embedding_model):
         # 2. Use 'cls' to call the sibling method
         client = cls.get_chroma_client(api_key, tenant, database)
-        embedding_model = emb.embedding_model 
+        
 
         return Chroma(
             client=client,
