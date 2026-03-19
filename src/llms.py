@@ -1,19 +1,23 @@
-# src/llms.py
+# src/llm.py
 
-# from langchain_groq import ChatGroq
+from openai import OpenAI
+from src.config import Config
 
+config = Config()
+class OpenAILLM:
 
-class Llms_client:
-    def __init__(self,client=None):
-        self.client = client
+    def __init__(self):
+        self.client = OpenAI(api_key=config.open_ai_api)
+        self.model = config.open_ai_llm_model
 
-    # def groq_llm(self, api_key: str, model: str, prompt) -> str:
-    #     llm = ChatGroq(
-    #         api_key=api_key,
-    #         model=model,
-    #         temperature=0.0,
-    #         max_retries=2,
-    #     )
+    def invoke(self, system_prompt, user_prompt):
 
-    #     response = llm.invoke(prompt)   # ✅ NO list wrapping
-    #     return response.content         # ✅ text only
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+
+        return response.choices[0].message.content

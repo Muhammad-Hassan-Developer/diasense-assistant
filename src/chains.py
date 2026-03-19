@@ -1,71 +1,66 @@
-from src.runables import RunnableManager
-from src.vector_store import VectorStore
-from src.config import Config
-from src.embeddings import Embeddings
+from src.llms import OpenAILLM
+gpt=OpenAILLM()
+from src.retrieval import sementic_retrival
+sr=sementic_retrival(k=5)
 from src.loader import Loader
-from langchain_community.document_loaders import TextLoader
-from src.prompts import Prompts
-prompts=Prompts()
-# 4. Initialize components
 loader=Loader()
-rm = RunnableManager()
-config = Config()
-emb = Embeddings()
-# initialinze the vector stores
-vs = VectorStore()
-diasense_vs=vs.get_vectorstore(
-    collection_name="diabetes_2026_pdf",
-    api_key=config.chroma_api_key,
-    tenant=config.chroma_tenant,
-    database=config.chroma_db
+system_prompt=loader.load_prompt("prompts/system.text")
+human_prompt=loader.load_prompt("prompts/human.text")
+# sr_docs=sr.invoke("What is diabetes?")
+# print(sr_docs)
+query="what is diabetes?"
+docs = sr.invoke(query)
+print(docs)
+docs_text = "\n\n".join([doc.page_content for doc in docs])
+
+final_human_prompt = human_prompt.format(
+    context=docs_text,
+    question=query
 )
+gpt_response=gpt.invoke(system_prompt=system_prompt,user_prompt=final_human_prompt)
+print(gpt_response)
+# import os
+# import pickle
+# from src.splitter import Splitter
+# from src.loader import Loader
+# from langchain_community.document_loaders import PyPDFLoader
 
-# # 5. Create retriever and perform search
-retriever_docs = diasense_vs.as_retriever(search_type="similarity", search_kwargs={"k": 10})
+# # Initialize loader and splitter
+# loader = Loader()
+# splitter = Splitter(chunk_size=700, chunk_overlap=100)
 
+# print("Loading documents from PDFs...")
 
-rm=RunnableManager()
-all_prompts = loader.load_from_dir("prompts/",glob="**/*.text",loader_cls=TextLoader)
-question_prompt = all_prompts[2].page_content
-system_prompt = all_prompts[1].page_content
-human_prompt = all_prompts[0].page_content
-print(human_prompt)
+# # Load PDF documents
+# docs_pdf = loader.load_from_dir(
+#     "data/pdfs",
+#     glob="**/*.pdf",
+#     loader_cls=PyPDFLoader
+# )
 
-from src.llms import Llms_client
-llm_client = Llms_client()
+# print(f"Total documents loaded: {len(docs_pdf)}")
+# print(type(docs_pdf))
+# print(docs_pdf[0].page_content[:500])
 
-def run_chat(question: str):
-    # 1️⃣ Retrieve documents
-    retrieval = rm.retrieval_prompt_runnable()  # optional: pass prompt later if needed
-    chain = retrieval | retriever_docs
-    docs = chain.invoke(question)
+# # Split documents into chunks
+# print("Splitting documents into chunks...")
+# chunks = splitter.split_documents(docs_pdf)
 
-    # 2️⃣ Build context
-    context = "\n\n".join(doc.page_content for doc in docs)
-    print(f"Retrieved {len(docs)} documents for question: '{question}'")
-    print(f"Context: {context}")
+# print(f"Total chunks created: {len(chunks)}")
 
-    from langchain_core.prompts import ChatPromptTemplate
+# # Create folder if it does not exist
+# os.makedirs("data/processed", exist_ok=True)
 
-    prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    ("human", human_prompt)
+# # Save chunks locally
+# save_path = "data/processed/chunks_700_100.pkl"
 
-    ])
-    formatted_messages = prompt.invoke({
-    "context": context,
-    "question": question
-    })
-    print(formatted_messages)
-    response = llm_client.groq_llm(
-        api_key=config.GROQ_API_KEY,
-        model=config.GROQ_MODEL,
-        prompt=formatted_messages,
-    )
+# with open(save_path, "wb") as f:
+#     pickle.dump(chunks, f)
 
-    return {
-        "answer": response,
-        "context": context
-    }
-# print(run_chat("What is diabetes?"))
-
+# print(f"Chunks saved at {save_path}")
+# from src.bm25_retrieval import BM25Manager
+# bm=BM25Manager(chunk_path=save_path)
+# bm.load_chunks()
+# bm.build_retriever()
+# # bm.query("What is diabetes?")
+# print(bm.query("classification")[0].page_content)
