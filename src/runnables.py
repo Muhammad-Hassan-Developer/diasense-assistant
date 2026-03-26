@@ -34,3 +34,12 @@ class Runnables:
             return self.vectorstore.similarity_search(question,k=5)
 
         return RunnableLambda(sementic_retrieval)
+    # 1. Define the logic as a function
+    def combine_docs(docs):
+        return "\n\n".join([doc.page_content for doc in docs])
+
+    # 2. Wrap it in a RunnableLambda
+    combine_docs_runnable = RunnableLambda(combine_docs)
+
+    # 3. Use it in a chain
+    # Example: retrieval_chain = retriever | combine_docs_runnable | prompt | model
