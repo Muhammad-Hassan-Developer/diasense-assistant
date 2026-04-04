@@ -1,23 +1,29 @@
-# src/llm.py
-
-from openai import OpenAI
-from src.config import Config
-
-config = Config()
+from openai import AsyncOpenAI
 class OpenAILLM:
+    def __init__(self, api_key: str, model: str):
+        self.client = AsyncOpenAI(api_key=api_key)
+        self.model = model
 
-    def __init__(self):
-        self.client = OpenAI(api_key=config.open_ai_api)
-        self.model = config.open_ai_llm_model
-
-    def invoke(self, system_prompt, user_prompt):
-
-        response = self.client.chat.completions.create(
+    async def invoke(self, system_prompt: str, user_prompt: str) -> str:
+        """Simple, clean execution of the prompts provided by the chain."""
+        response = await self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ]
         )
-
         return response.choices[0].message.content
+    async def invoke_stream(self, system_prompt: str, user_prompt: str):
+        response = await self.client.chat.completions.create(
+        model=self.model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        stream=True # This is the magic key
+    )
+        async for chunk in response:
+            content = chunk.choices[0].delta.content
+        if content:
+            yield content # Yield tokens as they arrive    

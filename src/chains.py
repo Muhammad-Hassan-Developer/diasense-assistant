@@ -1,93 +1,139 @@
-from __future__ import annotations
-import os
-import re
-from dataclasses import dataclass
-from functools import lru_cache
-from typing import Any, Dict, List, Optional, Sequence
-
-from langchain_core.documents import Document
-from langchain_core.runnables import RunnableLambda, RunnableParallel
-
-from src.bm25_retrieval import BM25Manager
-from src.loader import Loader
+# src/chains.py
+import asyncio
+from langchain_core.runnables import RunnableParallel, RunnableLambda
+from src.config import Config
+from src.embeddings import OpenAIEmbedding
+from src.vector_store import VectorStore
+from src.retrieval import RetrievalManager
+from src.sementic_retrieval import SementicRetrieval
+from src.bm25_retrieval import BM25Retrieval
+from src.runnables import AppRunnables
 from src.llms import OpenAILLM
-from src.retrieval import sementic_retrival
 
-# Global Constants
-DEFAULT_TOP_K = 5
+# 1. Setup Configuration & Models
+config = Config()
+embedding_model = OpenAIEmbedding(
+    model=config.open_ai_embedding_model, 
+    api_key=config.open_ai_api
+)
+vectorstore = VectorStore.get_vectorstore(
+    collection_name=config.chroma_collection,
+    api_key=config.chroma_api_key,
+    tenant=config.chroma_tenant,
+    database=config.chroma_db,
+    embedding_model=embedding_model
+)
 
-def _clean_text(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "").strip()
+# 2. Setup Retrieval Components
+sr = SementicRetrieval(vectorstore, k=5)
+br = BM25Retrieval(chunk_path="data/processed/chunks_700_100.pkl", k=5)
+retrieval_mgr = RetrievalManager(sementic_retrieval=sr, bm25_retrieval=br)
 
-def _dedupe_and_format(docs: Sequence[Document], k: int) -> List[Document]:
-    seen = set()
+app_runnables = AppRunnables(retrieval_mgr)
+semantic_retrieval_chain = app_runnables.semantic_retrieval_chain()
+bm25_retrieval_chain = app_runnables.bm25_retrieval_chain()
+
+# 3. Define the Hybrid Logic
+def merge_documents(results):
+    semantic_docs = results.get("semantic", [])
+    bm25_docs = results.get("bm25", [])
+    combined = semantic_docs + bm25_docs
     unique_docs = []
-    for d in docs:
-        cleaned_content = _clean_text(d.page_content)
-        if cleaned_content and cleaned_content not in seen:
-            seen.add(cleaned_content)
-            unique_docs.append(Document(page_content=cleaned_content, metadata=d.metadata))
-        if len(unique_docs) >= k:
-            break
+    seen_content = set()
+    for doc in combined:
+        if doc.page_content not in seen_content:
+            unique_docs.append(doc)
+            seen_content.add(doc.page_content)
     return unique_docs
 
-@dataclass(frozen=True)
-class HybridRAGConfig:
-    top_k: int = DEFAULT_TOP_K
-    bm25_path: str = "data/processed/chunks_700_100.pkl"
-    sys_prompt_path: str = "prompts/system.txt"
-    human_prompt_path: str = "prompts/human.txt"
+hybrid_retrieval_chain = (
+    RunnableParallel({
+        "semantic": semantic_retrieval_chain,
+        "bm25": bm25_retrieval_chain
+    })
+    | RunnableLambda(merge_documents)
+)
 
-class HybridRAG:
-    def __init__(self, config: HybridRAGConfig):
-        self.config = config
-        self.loader = Loader()
-        self.llm = OpenAILLM()
-        self.semantic_retriever = sementic_retrival(k=config.top_k)
-        
-        self.bm25_manager = None
-        if os.path.exists(config.bm25_path):
-            self.bm25_manager = BM25Manager(chunk_path=config.bm25_path)
-            self.bm25_manager.build_retriever(k=config.top_k)
+# 4. Prompt Templates (Initialized at Top)
+SYSTEM_PROMPT_TEMPLATE = (
+    "You are DiaSense AI, a medical assistant specializing in diabetes. "
+    "Use the provided context from 'Standards of Care 2026' to answer accurately. "
+    "Always cite the Page numbers provided in the context."
+)
 
-        # Fallback handling for prompt extensions (.txt or .text)
-        self.sys_prompt = self._load_p(config.sys_prompt_path)
-        self.hum_prompt = self._load_p(config.human_prompt_path)
-        self._chain = self._init_chain()
+HUMAN_PROMPT_TEMPLATE = """
+I have retrieved the following information from the medical guidelines:
 
-    def _load_p(self, path: str) -> str:
-        try: return self.loader.load_prompt(path)
-        except: return self.loader.load_prompt(path.replace(".txt", ".text"))
+CONTEXT:
+{context}
 
-    def _init_chain(self):
-        # Parallel Retrieval
-        retrievers = {
-            "semantic": RunnableLambda(lambda q: self.semantic_retriever.invoke(q)),
-            "bm25": RunnableLambda(lambda q: self.bm25_manager.retriever.invoke(q) if self.bm25_manager else [])
-        }
-        
-        def combine_step(data: Dict[str, Any]):
-            query = data["question"]
-            raw_docs = data["docs"]["semantic"] + data["docs"]["bm25"]
-            final_docs = _dedupe_and_format(raw_docs, self.config.top_k)
-            
-            context = "\n\n".join([d.page_content for d in final_docs])
-            prompt = self.hum_prompt.format(context=context, question=query)
-            
-            answer = self.llm.invoke(system_prompt=self.sys_prompt, user_prompt=prompt)
-            return {"answer": answer, "documents": final_docs}
+USER QUESTION: 
+{query}
 
-        return (
-            RunnableLambda(lambda q: {"question": q, "docs": RunnableParallel(**retrievers).invoke(q)})
-            | RunnableLambda(combine_step)
-        )
+Please provide a detailed answer based ONLY on the context above.
+"""
 
-    def run(self, query: str):
-        return self._chain.invoke(query)
+# 5. Async Main Execution Block
+# async def rag_chain():
+#     query = "What is diabetes?"
+#     print(f"\n--- Processing: {query} ---")
+    
+#     # CRITICAL FIX: We MUST 'await' the async invoke
+#     print("🔍 Running Hybrid Retrieval...")
+#     docs = await hybrid_retrieval_chain.ainvoke(query)
+#     print(f"✅ Retrieved {len(docs)} unique chunks.")
+    
+#     # Format the context string
+#     context_text = "\n\n".join([
+#         f"--- Excerpt (Page {d.metadata.get('page_label', 'N/A')}) ---\n{d.page_content}" 
+#         for d in docs
+#     ])
 
-@lru_cache(maxsize=1)
-def get_pipeline():
-    return HybridRAG(HybridRAGConfig())
+#     # Initialize the human prompt
+#     final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(
+#         context=context_text, 
+#         query=query
+#     )
 
-def query_chain(question: str):
-    return get_pipeline().run(question)
+#     # Initialize and call LLM
+#     llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
+    
+#     print("🤖 Sending to LLM...")
+#     # CRITICAL FIX: Also must 'await' the LLM call
+#     response = await llm.invoke(
+#         system_prompt=SYSTEM_PROMPT_TEMPLATE, 
+#         user_prompt=final_human_prompt
+#     )
+# src/chains.py
+import asyncio
+from src.llms import OpenAILLM
+# ... (all your existing imports)
+
+# INITIALIZE ONCE (Global Scope)
+# This prevents the 1.83s "Startup" cost on every API call
+# ... (your existing embedding, vectorstore, and retrieval_mgr setup)
+llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
+
+async def query_chain(question: str):
+    """The main function FastAPI will call"""
+    # 1. Retrieval
+    docs = await hybrid_retrieval_chain.ainvoke(question)
+    
+    # 2. Format
+    context_text = "\n\n".join([
+        f"--- Excerpt (Page {d.metadata.get('page_label', 'N/A')}) ---\n{d.page_content}" 
+        for d in docs
+    ])
+
+    final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(context=context_text, query=question)
+
+    # 3. LLM Generation
+    answer = await llm.invoke(
+        system_prompt=SYSTEM_PROMPT_TEMPLATE, 
+        user_prompt=final_human_prompt
+    )
+
+    return {
+        "answer": answer,
+        "documents": docs
+    }

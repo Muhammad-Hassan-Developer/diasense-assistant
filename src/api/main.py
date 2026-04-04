@@ -1,55 +1,40 @@
-from __future__ import annotations
-import logging
-from typing import Any, Dict, List
+# main.py
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
-from anyio import to_thread
+import logging
 
+# Import the async function from your chains file
 from src.chains import query_chain
 
-# Logging Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("diasense.api")
 
-app = FastAPI(
-    title="DiaSense Healthcare AI",
-    description="Agentic RAG for Diabetes Analysis",
-    version="1.0.0"
-)
+app = FastAPI(title="DiaSense Healthcare AI")
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., min_length=3, max_length=500, example="What are the early signs of diabetes?")
+    question: str = Field(..., min_length=3, max_length=500)
 
-def _serialize_docs(docs: Any) -> List[Dict[str, Any]]:
-    if not docs: return []
-    return [
-        {
-            "content": getattr(d, "page_content", str(d)),
-            "metadata": getattr(d, "metadata", {})
-        } for d in docs
-    ]
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "model": "OpenAI/Hybrid-RAG"}
-
-@app.post("/query", status_code=status.HTTP_200_OK)
+@app.post("/query")
 async def query_endpoint(request: QueryRequest):
     try:
-        logger.info(f"Processing query: {request.question}")
+        logger.info(f"User Query: {request.question}")
 
-        # Run heavy RAG logic in a separate thread to keep API responsive
-        result = await to_thread.run_sync(query_chain, request.question)
+        # Calling our async RAG pipeline directly
+        result = await query_chain(request.question)
 
         return {
-            "answer": result.get("answer", "I couldn't generate an answer."),
-            "documents": _serialize_docs(result.get("documents")),
+            "answer": result["answer"],
+            "documents": [
+                {
+                    "content": d.page_content,
+                    "page": d.metadata.get("page_label", "N/A")
+                } for d in result["documents"]
+            ],
             "status": "success"
         }
 
     except Exception as e:
-        logger.error(f"Pipeline Error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while processing the healthcare query."
-        )
+        logger.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# Run with: uvicorn main:app --reload

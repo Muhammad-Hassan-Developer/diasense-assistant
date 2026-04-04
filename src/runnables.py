@@ -1,45 +1,42 @@
 from langchain_core.runnables import RunnableLambda
+import asyncio
+class AppRunnables:
+    def __init__(self, retrieval_mgr):
+        # Hum poora manager pass kar rahe hain taake flexibility rahe
+        self.rm = retrieval_mgr
 
-from src.config import Config
-from src.vector_store import VectorStore
-from src.embeddings import OpenAIEmbedding
+    def semantic_retrieval_chain(self):
+        """
+        Ye method 'What is diabetes?' jaise string input leta hai 
+        aur documents return karta hai.
+        """
+        return RunnableLambda(lambda query: asyncio.run(self.rm.get_semantic_docs(query)))
+    def bm25_retrieval_chain(self):
+        """
+        Ye method 'What is diabetes?' jaise string input leta hai 
+        aur documents return karta hai.
+        """
+        return RunnableLambda(lambda query: asyncio.run(self.rm.get_bm25_docs(query)))
 
+    def hybrid_retrieval_chain(self):
+        """
+        Hybrid retrieval ke liye (Async method ko sync wrapper mein lapetna parta hai)
+        """
+        import asyncio
+        return RunnableLambda(lambda query: asyncio.run(self.rm.get_bm25_docs(query)))
+    def rerank_docs_chain(self):
+        """
+        Input format: {"query": "...", "documents": [...]}
+        Output: Top reranked documents with metadata intact.
+        """
+        def rerank_logic(input_data):
+            query = input_data["query"]
+            docs = input_data["documents"]
+            
+            if not docs:
+                return []
+                
+            # LangChain built-in method jo humne RerankManager mein compressor rakha hai
+            return self.reranker.compress_documents(documents=docs, query=query)
 
-class Runnables:
-
-    def __init__(self):
-        self.config = Config()
-
-        # Initialize vector store
-        self.vs = VectorStore()
-
-        # Initialize embedding model
-        self.embedding_model = OpenAIEmbedding(
-            model=self.config.open_ai_embedding_model,
-            api_key=self.config.open_ai_api
-        )
-
-        # Get vectorstore instance
-        self.vectorstore = self.vs.get_vectorstore(
-            api_key=self.config.chroma_api_key,
-            collection_name=self.config.chroma_collection,
-            tenant=self.config.chroma_tenant,
-            database=self.config.chroma_db,
-            embedding_model=self.embedding_model
-        )
-
-    def sementic_retrieval_runnable(self):
-
-        def sementic_retrieval(question: str):
-            return self.vectorstore.similarity_search(question,k=5)
-
-        return RunnableLambda(sementic_retrieval)
-    # 1. Define the logic as a function
-    def combine_docs(docs):
-        return "\n\n".join([doc.page_content for doc in docs])
-
-    # 2. Wrap it in a RunnableLambda
-    combine_docs_runnable = RunnableLambda(combine_docs)
-
-    # 3. Use it in a chain
-    # Example: retrieval_chain = retriever | combine_docs_runnable | prompt | model
+        return RunnableLambda(rerank_logic)

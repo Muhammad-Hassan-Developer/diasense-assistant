@@ -1,22 +1,30 @@
+# 
 import pickle
 from langchain_community.retrievers import BM25Retriever
 
-class BM25Manager:
-
-    def __init__(self, chunk_path):
+class BM25Retrieval:
+    def __init__(self, chunk_path: str, k: int):
         self.chunk_path = chunk_path
-        self.retriever = None
+        self.k = k
+        self.retriever = self._build_retriever()
 
-    def load_chunks(self):
-        with open(self.chunk_path, "rb") as f:
-            chunks = pickle.load(f)
-        return chunks
+    def _build_retriever(self):
+        """Sirf aik baar startup par chunks load honge"""
+        try:
+            with open(self.chunk_path, "rb") as f:
+                chunks = pickle.load(f)
+            
+            # Index yahan aik hi baar ban jaye ga
+            retriever = BM25Retriever.from_documents(chunks)
+            retriever.k = self.k
+            print(f"✅ BM25 Ready: {len(chunks)} chunks loaded.")
+            return retriever
+        except Exception as e:
+            print(f"❌ BM25 Load Error: {e}")
+            return None
 
-    def build_retriever(self, k=5):
-        chunks = self.load_chunks()
-        self.retriever = BM25Retriever.from_documents(chunks)
-        self.retriever.k = k
-        print("BM25 retriever ready")
-
-    def query(self, query):
+    def search(self, query: str):
+        """Simple and fast search"""
+        if not self.retriever:
+            return []
         return self.retriever.invoke(query)

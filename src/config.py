@@ -18,3 +18,5 @@ class Config:
     open_ai_api=os.getenv("OPENAI_API_KEY")
     open_ai_embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL")
     open_ai_llm_model=os.getenv("OPENAI_LLM_MODEL")
+    cohere_api_key=os.getenv("COHERE_API_KEY")
+    cohere_model=os.getenv("COHERE_MODEL")
