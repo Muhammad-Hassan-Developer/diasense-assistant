@@ -13,7 +13,7 @@ class OpenAILLM:
                 {"role": "user", "content": user_prompt}
             ]
         )
-        return response.choices[0].message.content
+        return response
     async def invoke_stream(self, system_prompt: str, user_prompt: str):
         response = await self.client.chat.completions.create(
         model=self.model,

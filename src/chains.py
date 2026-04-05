@@ -73,67 +73,123 @@ USER QUESTION:
 Please provide a detailed answer based ONLY on the context above.
 """
 
-# 5. Async Main Execution Block
-# async def rag_chain():
-#     query = "What is diabetes?"
-#     print(f"\n--- Processing: {query} ---")
+
+import asyncio
+from src.llms import OpenAILLM
+# ... (all your existing imports)
+
+# # INITIALIZE ONCE (Global Scope)
+# # This prevents the 1.83s "Startup" cost on every API call
+# # ... (your existing embedding, vectorstore, and retrieval_mgr setup)
+# llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
+
+# async def query_chain(question: str):
+#     """The main function FastAPI will call"""
+#     # 1. Retrieval
+#     docs = await hybrid_retrieval_chain.ainvoke(question)
     
-#     # CRITICAL FIX: We MUST 'await' the async invoke
-#     print("🔍 Running Hybrid Retrieval...")
-#     docs = await hybrid_retrieval_chain.ainvoke(query)
-#     print(f"✅ Retrieved {len(docs)} unique chunks.")
-    
-#     # Format the context string
+#     # 2. Format
 #     context_text = "\n\n".join([
 #         f"--- Excerpt (Page {d.metadata.get('page_label', 'N/A')}) ---\n{d.page_content}" 
 #         for d in docs
 #     ])
 
-#     # Initialize the human prompt
-#     final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(
-#         context=context_text, 
-#         query=query
-#     )
+#     final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(context=context_text, query=question)
 
-#     # Initialize and call LLM
-#     llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
-    
-#     print("🤖 Sending to LLM...")
-#     # CRITICAL FIX: Also must 'await' the LLM call
-#     response = await llm.invoke(
+#     # 3. LLM Generation
+#     answer = await llm.invoke(
 #         system_prompt=SYSTEM_PROMPT_TEMPLATE, 
 #         user_prompt=final_human_prompt
 #     )
-# src/chains.py
+
+#     return {
+#         "answer": answer,
+#         "documents": docs
+#     }
+import time
 import asyncio
 from src.llms import OpenAILLM
-# ... (all your existing imports)
+# ... (all your other imports from config, vector_store, etc.)
 
-# INITIALIZE ONCE (Global Scope)
-# This prevents the 1.83s "Startup" cost on every API call
-# ... (your existing embedding, vectorstore, and retrieval_mgr setup)
+# Pricing dictionary (optional but helpful for dashboard)
+PRICING = {
+    "gpt-4o-mini": {"input": 0.15 / 1_000_000, "output": 0.60 / 1_000_000},
+    "gpt-4o": {"input": 2.50 / 1_000_000, "output": 10.00 / 1_000_000}
+}
+
+# 1. Global Initialization
 llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
 
 async def query_chain(question: str):
-    """The main function FastAPI will call"""
-    # 1. Retrieval
-    docs = await hybrid_retrieval_chain.ainvoke(question)
+    """The main function with detailed performance and source tracking"""
     
-    # 2. Format
-    context_text = "\n\n".join([
-        f"--- Excerpt (Page {d.metadata.get('page_label', 'N/A')}) ---\n{d.page_content}" 
-        for d in docs
-    ])
+    start_total = time.perf_counter() # Total latency start
+    
+    # --- STEP 1: RETRIEVAL ---
+    start_retrieval = time.perf_counter()
+    docs = await hybrid_retrieval_chain.ainvoke(question)
+    retrieval_time = round(time.perf_counter() - start_retrieval, 4)
+    
+    # --- STEP 2: FORMAT CONTEXT ---
+    # Hum context build kar rahe hain aur sath hi sources ki list bhi
+    context_parts = []
+    sources = []
+    
+    for d in docs:
+        page = d.metadata.get('page_label', 'N/A')
+        content = d.page_content
+        context_parts.append(f"--- Excerpt (Page {page}) ---\n{content}")
+        
+        # Dashboard ke liye clean sources object
+        sources.append({
+            "page": page,
+            "snippet": content[:150] + "...", # Preview for frontend
+            "metadata": d.metadata
+        })
 
+    context_text = "\n\n".join(context_parts)
     final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(context=context_text, query=question)
 
-    # 3. LLM Generation
-    answer = await llm.invoke(
+    # --- STEP 3: LLM GENERATION ---
+    start_llm = time.perf_counter()
+    
+    # Note: Make sure your invoke() returns the full response object to get usage
+    # If it only returns string, you might need: response_obj = await llm.client.chat.completions.create(...)
+    full_response = await llm.invoke(
         system_prompt=SYSTEM_PROMPT_TEMPLATE, 
         user_prompt=final_human_prompt
     )
+    
+    llm_time = round(time.perf_counter() - start_llm, 4)
+    total_latency = round(time.perf_counter() - start_total, 4)
 
+    # --- STEP 4: TOKEN & COST CALCULATION ---
+    # Assuming full_response has usage (Standard OpenAI object)
+    # If your llm.invoke only returns a string, you will need to adjust your llm class
+    usage = getattr(full_response, 'usage', None)
+    
+    input_tokens = usage.prompt_tokens if usage else 0
+    output_tokens = usage.completion_tokens if usage else 0
+    
+    # Simple cost estimate
+    model_name = config.open_ai_llm_model
+    rates = PRICING.get(model_name, PRICING["gpt-4o-mini"])
+    estimated_cost = (input_tokens * rates["input"]) + (output_tokens * rates["output"])
+
+    # --- FINAL OUTPUT ---
     return {
-        "answer": answer,
-        "documents": docs
+        "answer": full_response.choices[0].message.content if usage else full_response,
+        "context_used": context_text,
+        "performance": {
+            "total_latency": f"{total_latency}s",
+            "retrieval_latency": f"{retrieval_time}s",
+            "llm_latency": f"{llm_time}s"
+        },
+        "usage": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "estimated_cost_usd": round(estimated_cost, 6)
+        },
+        "sources": sources
     }
