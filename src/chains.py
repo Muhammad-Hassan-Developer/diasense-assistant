@@ -76,36 +76,6 @@ Please provide a detailed answer based ONLY on the context above.
 
 import asyncio
 from src.llms import OpenAILLM
-# ... (all your existing imports)
-
-# # INITIALIZE ONCE (Global Scope)
-# # This prevents the 1.83s "Startup" cost on every API call
-# # ... (your existing embedding, vectorstore, and retrieval_mgr setup)
-# llm = OpenAILLM(api_key=config.open_ai_api, model=config.open_ai_llm_model)
-
-# async def query_chain(question: str):
-#     """The main function FastAPI will call"""
-#     # 1. Retrieval
-#     docs = await hybrid_retrieval_chain.ainvoke(question)
-    
-#     # 2. Format
-#     context_text = "\n\n".join([
-#         f"--- Excerpt (Page {d.metadata.get('page_label', 'N/A')}) ---\n{d.page_content}" 
-#         for d in docs
-#     ])
-
-#     final_human_prompt = HUMAN_PROMPT_TEMPLATE.format(context=context_text, query=question)
-
-#     # 3. LLM Generation
-#     answer = await llm.invoke(
-#         system_prompt=SYSTEM_PROMPT_TEMPLATE, 
-#         user_prompt=final_human_prompt
-#     )
-
-#     return {
-#         "answer": answer,
-#         "documents": docs
-#     }
 import time
 import asyncio
 from src.llms import OpenAILLM
