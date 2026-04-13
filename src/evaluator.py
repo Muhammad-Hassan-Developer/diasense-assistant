@@ -6,12 +6,17 @@ from datasets import Dataset
 from ragas import evaluate
 from ragas.metrics import faithfulness, answer_relevancy
 from langchain_openai import ChatOpenAI
-from src.embeddings import OpenAIEmbedding
 from src.config import Config
 config=Config()
 # Jahan ChatOpenAI define hai:
 llm = ChatOpenAI(model=config.open_ai_llm_model, max_tokens=2000)
-embeddings=OpenAIEmbedding(model=config.open_ai_llm_model,api_key=config.open_ai_api)
+from langchain_openai import OpenAIEmbeddings
+
+# Initialize aise karein
+embeddings = OpenAIEmbeddings(
+    model=config.open_ai_embedding_model, # Ya config se uthain
+    api_key=config.open_ai_api
+)
 class RagasEvaluator:
     def __init__(self, llm=None, embeddings=None):
         self.metrics = [faithfulness, answer_relevancy]
