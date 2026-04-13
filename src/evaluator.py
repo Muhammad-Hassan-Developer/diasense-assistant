@@ -41,7 +41,7 @@ class RagasEvaluator:
     async def evaluate_chat(self, query: str, context: str, response: str) -> Dict:
         try:
             sample = {
-                "user_input": [query],
+                "user_input": [query ],
                 "retrieved_contexts": [self._parse_context(context)],
                 "response": [response],
                 "reference": [response] 
