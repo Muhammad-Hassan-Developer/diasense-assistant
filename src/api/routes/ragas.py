@@ -1,9 +1,20 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from src.evaluator import RagasEvaluator
+from langchain_openai import ChatOpenAI
+from src.config import Config
+config=Config()
+# Jahan ChatOpenAI define hai:
+llm = ChatOpenAI(model=config.open_ai_llm_model, max_tokens=2000)
+from langchain_openai import OpenAIEmbeddings
 
+# Initialize aise karein
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small", # Ya config se uthain
+    api_key=config.open_ai_api
+)
 # Global instance initialize krna taake bar bar LLM load na ho
-evaluator = RagasEvaluator()
+evaluator = RagasEvaluator(llm=llm,embeddings=embeddings)
 
 router = APIRouter(
     tags=["RAGAS Evaluation"]
