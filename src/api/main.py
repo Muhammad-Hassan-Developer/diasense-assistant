@@ -29,33 +29,6 @@ app.include_router(qa.router)
 async def health():
     return {"status": "healthy"}
 
-# 2. Updated Main RAG Query Endpoint
-
-# async def query_endpoint(request: QueryRequest):
-#     try:
-#         logger.info(f"Processing Query: {request.query}")
-
-#         # Calling the updated RAG pipeline
-#         # result ab aik structured dict return karega
-#         result = await query_chain(request.query)
-
-#         # Mapping data to match New Frontend Expectations (including metrics)
-#         return {
-#             "status": "success",
-#             "answer": result["answer"],
-#             "sources": result["sources"],
-#             "context":result["context_used"], # Direct source objects (page, snippet)
-#             "metrics": {
-#                 "performance": result["performance"], # Latency (total, retrieval, llm)
-#                 "usage": result["usage"]             # Tokens and Cost
-#             },
-#             # "context_raw": result["context_used"] # Optional: Agar debug karna ho
-#         }
-
-#     except Exception as e:
-#         logger.error(f"RAG Pipeline Error: {str(e)}")
-#         # Production mein 'str(e)' ki jagah generic message dein
-#         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # # Run command for production:
 # # uvicorn src.api.main:app --host 0.0.0.0 --port 8000

@@ -6,7 +6,6 @@ from src.evaluator import RagasEvaluator
 evaluator = RagasEvaluator()
 
 router = APIRouter(
-    prefix="/evaluate",
     tags=["RAGAS Evaluation"]
 )
 
