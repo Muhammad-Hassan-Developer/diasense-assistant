@@ -4,7 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import time
 from src.api.routes import ragas,qa
+import asyncio
+import sys
 
+# Windows par masla nahi hota, lekin Linux/Render par uvloop ko disable krna prta hai
+import sys
+import asyncio
+
+# Safe handling for uvloop (Linux only)
+if sys.platform != "win32":
+    try:
+        import uvloop # type: ignore
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+    except ImportError:
+        pass
 
 # Import the updated async function from your chains file
 
