@@ -142,24 +142,24 @@ async def query_chain(question: str):
     output_tokens = usage.completion_tokens if usage else 0
     
     # Simple cost estimate
-    model_name = config.open_ai_llm_model
-    rates = PRICING.get(model_name, PRICING["gpt-4o-mini"])
-    estimated_cost = (input_tokens * rates["input"]) + (output_tokens * rates["output"])
+    # model_name = config.open_ai_llm_model
+    # rates = PRICING.get(model_name, PRICING["gpt-4o-mini"])
+    # estimated_cost = (input_tokens * rates["input"]) + (output_tokens * rates["output"])
 
     # --- FINAL OUTPUT ---
     return {
         "answer": full_response.choices[0].message.content if usage else full_response,
         "context_used": context_text,
         "performance": {
-            "total_latency": f"{total_latency}s",
-            "retrieval_latency": f"{retrieval_time}s",
-            "llm_latency": f"{llm_time}s"
+            "total_latency": {total_latency},
+            "retrieval_latency": {retrieval_time},
+            "llm_latency": {llm_time}
         },
         "usage": {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
-            "estimated_cost_usd": round(estimated_cost, 6)
+            # "estimated_cost_usd": round(estimated_cost, 6)
         },
         "sources": sources
     }
