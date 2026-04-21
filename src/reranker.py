@@ -1,17 +1,26 @@
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
+# src/reranker.py
 from langchain_cohere import CohereRerank
 from src.config import Config
 
 config = Config()
 
 class RerankManager:
-    def __init__(self, top_n: int = 3):
-        # LangChain ka built-in compressor
-        self.compressor = CohereRerank(
+    def __init__(self, top_n):
+        """
+        Cohere Reranker initialization.
+        """
+        self.reranker = CohereRerank(
             cohere_api_key=config.cohere_api_key,
-            model=config.cohere_model,
+            model=config.cohere_model, # e.g., 'rerank-v4.0-pro'
             top_n=top_n
         )
 
-    def get_reranker(self):
-        return self.compressor
+    def rerank_documents(self, query: str, documents: list):
+        """
+        Manual reranking for a list of documents.
+        """
+        if not documents:
+            return []
+        
+        # LangChain ka compressor use karte hue documents ko rerank karna
+        return self.reranker.compress_documents(documents, query)
